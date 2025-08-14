@@ -1,26 +1,51 @@
+import { db } from '../db';
+import { jobsTable } from '../db/schema';
 import { type UpdateJobStatusInput, type Job } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const updateJobStatus = async (input: UpdateJobStatusInput): Promise<Job> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating job status through approval workflow.
-    // Should handle status transitions: draft -> pending_approval -> approved -> published -> closed
-    // Should set published_at when status becomes 'published'
-    // Should set approved_by when status becomes 'approved'
-    return Promise.resolve({
-        id: input.job_id,
-        title: 'Placeholder',
-        description: 'Placeholder',
-        requirements: 'Placeholder',
-        department: 'Placeholder',
-        location: null,
-        salary_range: null,
-        employment_type: 'Placeholder',
-        status: input.status,
-        created_by: 0,
-        approved_by: input.approved_by,
-        created_at: new Date(),
-        updated_at: new Date(),
-        published_at: input.status === 'published' ? new Date() : null,
-        closed_at: input.status === 'closed' ? new Date() : null
-    } as Job);
+  try {
+    // First, verify the job exists
+    const existingJob = await db.select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, input.job_id))
+      .execute();
+
+    if (existingJob.length === 0) {
+      throw new Error(`Job with id ${input.job_id} not found`);
+    }
+
+    // Build update values based on status
+    const updateValues: any = {
+      status: input.status,
+      updated_at: new Date()
+    };
+
+    // Set approved_by when status becomes 'approved'
+    if (input.status === 'approved' && input.approved_by) {
+      updateValues.approved_by = input.approved_by;
+    }
+
+    // Set published_at when status becomes 'published'
+    if (input.status === 'published') {
+      updateValues.published_at = new Date();
+    }
+
+    // Set closed_at when status becomes 'closed'
+    if (input.status === 'closed') {
+      updateValues.closed_at = new Date();
+    }
+
+    // Update the job status
+    const result = await db.update(jobsTable)
+      .set(updateValues)
+      .where(eq(jobsTable.id, input.job_id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Job status update failed:', error);
+    throw error;
+  }
 };

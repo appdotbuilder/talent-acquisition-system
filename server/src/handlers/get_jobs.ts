@@ -1,14 +1,42 @@
+import { db } from '../db';
+import { jobsTable } from '../db/schema';
 import { type Job, type GetJobsByStatusInput } from '../schema';
+import { eq, and, type SQL } from 'drizzle-orm';
 
 export const getJobs = async (): Promise<Job[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all jobs from the database.
-    return [];
+  try {
+    const results = await db.select()
+      .from(jobsTable)
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Failed to fetch jobs:', error);
+    throw error;
+  }
 };
 
 export const getJobsByStatus = async (input: GetJobsByStatusInput): Promise<Job[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching jobs filtered by status and/or creator.
-    // Used for role-based dashboards to show relevant jobs.
-    return [];
+  try {
+    const conditions: SQL<unknown>[] = [];
+
+    if (input.status !== undefined) {
+      conditions.push(eq(jobsTable.status, input.status));
+    }
+
+    if (input.created_by !== undefined) {
+      conditions.push(eq(jobsTable.created_by, input.created_by));
+    }
+
+    const baseQuery = db.select().from(jobsTable);
+
+    const results = conditions.length > 0
+      ? await baseQuery.where(conditions.length === 1 ? conditions[0] : and(...conditions)).execute()
+      : await baseQuery.execute();
+
+    return results;
+  } catch (error) {
+    console.error('Failed to fetch jobs by status:', error);
+    throw error;
+  }
 };
